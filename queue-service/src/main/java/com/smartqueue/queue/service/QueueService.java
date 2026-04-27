@@ -165,9 +165,16 @@ public class QueueService {
 }
 	// ================= CANCEL =================
 
-	public String cancelToken(Long tokenId, String reason) {
+	public String cancelToken(Long tokenId, String reason, Long requesterUserId, String requesterRoles) {
 
 		QueueToken token = repository.findById(tokenId).orElseThrow(() -> new BadRequestException("Token not found"));
+
+		boolean isOwner = token.getUserId().equals(requesterUserId);
+		boolean isAdmin = requesterRoles != null && requesterRoles.contains("ADMIN");
+
+		if (!isOwner && !isAdmin) {
+			throw new BadRequestException("Unauthorized action");
+		}
 
 		// 🔥 VALIDATION (IMPORTANT)
 		if (token.getStatus() == TokenStatus.CANCELLED) {
