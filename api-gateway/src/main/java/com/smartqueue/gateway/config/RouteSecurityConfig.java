@@ -16,14 +16,22 @@ import java.util.*;
 @Component
 public class RouteSecurityConfig {
 
+    private static final Set<String> AUTH_PUBLIC_PATHS = Set.of(
+            "/api/v1/auth/login",
+            "/api/v1/auth/verify",
+            "/api/v1/auth/resend-otp",
+            "/api/v1/auth/refresh"
+    );
+
     // 🔓 PUBLIC ROUTES
 	public boolean isPublic(String path) {
-	    return path.startsWith("/api/v1/auth")
-	        || path.startsWith("/api/v1/public");
+	    return path.startsWith("/api/v1/public")
+            || path.startsWith("/api/v1/auth/register/")
+            || AUTH_PUBLIC_PATHS.contains(path);
 	}
     // 🔐 ROLE-BASED RULES ONLY
     private static final Map<String, List<String>> ROLE_RULES = Map.of(
-            "/api/v1/admin/business", List.of("ADMIN","USER"),
+            "/api/v1/admin/business", List.of("ADMIN"),
             "/api/v1/queue", List.of("USER", "ADMIN")
     );
 

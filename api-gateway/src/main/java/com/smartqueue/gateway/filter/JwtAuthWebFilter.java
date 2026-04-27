@@ -4,7 +4,9 @@ import java.util.List;
 
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 
@@ -34,8 +36,8 @@ public class JwtAuthWebFilter implements GatewayFilter {
 
         String path = exchange.getRequest().getURI().getPath();
 
-        // 🔓 Skip auth routes
-        if (path.startsWith("/api/v1/auth")) {
+        // 🔓 Skip public routes
+        if (securityConfig.isPublic(path)) {
             return chain.filter(exchange);
         }
 
@@ -82,6 +84,9 @@ public class JwtAuthWebFilter implements GatewayFilter {
 
     private Mono<Void> onError(ServerWebExchange exchange, String message, HttpStatus status) {
         exchange.getResponse().setStatusCode(status);
-        return exchange.getResponse().setComplete();
+        exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        String body = "{\"success\":false,\"message\":\"" + message + "\"}";
+        DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(body.getBytes());
+        return exchange.getResponse().writeWith(Mono.just(buffer));
     }
 }
