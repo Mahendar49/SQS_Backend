@@ -1,0 +1,28 @@
+package com.smartqueue.queue.entity;
+
+import java.time.LocalDate;
+
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "queue_analytics")
+public class QueueAnalytics {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private Long queueId;
+
+    private LocalDate date;
+
+    private Integer hour;
+
+    private Integer totalUsers = 0;
+
+    private Long avgWaitTime = 0L;
+
+    private Integer cancellations = 0;
+
+    // Getters & Setters
+}

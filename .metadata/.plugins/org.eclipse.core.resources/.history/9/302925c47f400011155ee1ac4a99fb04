@@ -1,0 +1,56 @@
+import java.util.Collection;
+import java.util.List;
+
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+public class CustomUserPrincipal implements UserDetails {
+
+    private static final long serialVersionUID = 7465644271322562257L;
+
+    private final String userId;   // UUID
+    private final String email;
+    private final List<GrantedAuthority> authorities; // roles
+    private final List<String> permissions; // features
+
+    public CustomUserPrincipal(String userId, String email,
+                               List<GrantedAuthority> authorities,
+                               List<String> permissions) {
+        this.userId = userId;
+        this.email = email;
+        this.authorities = authorities;
+        this.permissions = permissions;
+    }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public List<String> getPermissions() {
+        return permissions;
+    }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return authorities;
+    }
+
+    @Override
+    public String getPassword() {
+        return null;
+    }
+
+    @Override
+    public String getUsername() {
+        return email;
+    }
+
+    @Override public boolean isAccountNonExpired() { return true; }
+    @Override public boolean isAccountNonLocked() { return true; }
+    @Override public boolean isCredentialsNonExpired() { return true; }
+    @Override public boolean isEnabled() { return true; }
+}

@@ -1,0 +1,18 @@
+@Entity
+@Table(name = "notifications")
+public class Notification {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private Long userId;
+
+    private String message;
+
+    private Integer position;
+
+    private Long counterId;
+
+    private LocalDateTime sentAt = LocalDateTime.now();
+}

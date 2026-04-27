@@ -1,0 +1,90 @@
+package com.smartqueue.queue.service;
+
+import java.util.List;
+
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
+
+import com.smartqueue.queue.entity.Notification;
+import com.smartqueue.queue.entity.NotificationChannel;
+import com.smartqueue.queue.entity.NotificationType;
+import com.smartqueue.queue.repository.NotificationRepository;
+
+@Service
+public class NotificationService {
+
+	private final NotificationRepository repository;
+	private final SimpMessagingTemplate messagingTemplate;
+	private final EmailService emailService;
+
+	public NotificationService(NotificationRepository repository, SimpMessagingTemplate messagingTemplate,
+			EmailService emailService) {
+		this.repository = repository;
+		this.messagingTemplate = messagingTemplate;
+		this.emailService = emailService;
+	}
+
+	// ================= MAIN METHOD =================
+
+	public void notifyUser(Long userId, String message, Integer position, Long counterId) {
+
+		// 🔥 1. SAVE TO DB
+		Notification notification = new Notification();
+		notification.setUserId(userId);
+		notification.setMessage(message);
+		notification.setPosition(position);
+		notification.setCounterId(counterId);
+		notification.setType(NotificationType.GENERAL);
+		notification.setChannel(NotificationChannel.IN_APP);
+
+		repository.save(notification);
+
+		// 🔥 2. SEND REAL-TIME POPUP (WebSocket)
+		sendRealtimeNotification(userId, message);
+
+		// 🔥 3. SEND EMAIL (optional)
+		emailService.sendEmail("user" + userId + "@mail.com", // placeholder
+				"SmartQueue Update", message);
+	}
+
+	public void notifyIfImportant(Long userId, String message, Integer position, Long counterId,
+			NotificationType type) {
+
+// 🔥 RULE 1: Notify only if position is critical
+		if (position != null && position > 3 && type != NotificationType.TURN_ALERT) {
+			return; // skip non-important notifications
+		}
+
+// 🔥 SAVE
+		Notification notification = new Notification();
+		notification.setUserId(userId);
+		notification.setMessage(message);
+		notification.setPosition(position);
+		notification.setCounterId(counterId);
+		notification.setType(type);
+		notification.setChannel(NotificationChannel.IN_APP);
+
+		repository.save(notification);
+
+// 🔥 REAL-TIME
+		messagingTemplate.convertAndSend("/topic/user/" + userId, message);
+
+// 🔥 EMAIL (only for important alerts)
+		if (type == NotificationType.TURN_ALERT) {
+			emailService.sendEmail("user" + userId + "@mail.com", "Your Turn Now!", message);
+		}
+	}
+
+	// ================= WEBSOCKET =================
+
+	private void sendRealtimeNotification(Long userId, String message) {
+
+		messagingTemplate.convertAndSend("/topic/user/" + userId, message);
+	}
+
+	// ================= FETCH =================
+
+	public List<Notification> getUserNotifications(Long userId) {
+		return repository.findByUserIdOrderBySentAtDesc(userId);
+	}
+}

@@ -1,0 +1,69 @@
+package com.smartqueue.business.controller;
+
+import java.util.DuplicateFormatFlagsException;
+import java.util.List;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.smartqueue.business.dto.ApiResponse;
+import com.smartqueue.business.dto.BusinessResponse;
+import com.smartqueue.business.dto.CounterRequest;
+import com.smartqueue.business.dto.CounterResponse;
+import com.smartqueue.business.dto.CreateBusinessRequest;
+import com.smartqueue.business.entity.Business;
+import com.smartqueue.business.entity.Counter;
+import com.smartqueue.business.exception.DuplicateResourceException;
+import com.smartqueue.business.repository.CounterRepository;
+import com.smartqueue.business.service.BusinessService;
+
+@RestController
+@RequestMapping("/api/v1/business")
+public class BusinessController {
+
+	private final BusinessService service;
+	private final CounterRepository counterRepository;
+
+	public BusinessController(BusinessService service, CounterRepository counterRepository) {
+		this.service = service;
+		this.counterRepository = counterRepository;
+	}
+
+	@PostMapping
+	public ApiResponse<BusinessResponse> create(@RequestBody CreateBusinessRequest request) {
+
+		return new ApiResponse<>(true, "Business created", service.createBusiness(request));
+	}
+
+	@GetMapping("/{id}")
+	public Business get(@PathVariable Long id) {
+		return service.getById(id);
+	}
+
+	@PostMapping("/{id}/counter")
+	public String addCounter(@PathVariable Long id, @RequestBody CounterRequest request) {
+
+		Counter counter = new Counter();
+
+		counter.setName(request.getName());
+
+		counter.setAvgServiceTime(request.getAvgServiceTime());
+		counter.setStatus("OPEN");
+
+		Business business = service.getById(id);
+		counter.setBusiness(business);
+
+		counterRepository.save(counter);
+
+		return "Counter added";
+	}
+
+	@GetMapping("/{id}/counters")
+	public List<CounterResponse> getCounters(@PathVariable Long id) {
+		return service.getCounters(id);
+	}
+}

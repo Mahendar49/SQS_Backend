@@ -1,0 +1,62 @@
+package com.smartqueue.queue.repository;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import com.smartqueue.queue.entity.QueueToken;
+import com.smartqueue.queue.entity.TokenStatus;
+
+public interface QueueTokenRepository extends JpaRepository<QueueToken, Long> {
+
+    // 🔥 Get tokens by queue + status (sorted)
+    List<QueueToken> findByQueueIdAndStatusOrderByPositionAsc(
+            Long queueId,
+            TokenStatus status
+    );
+
+    // 🔥 Get tokens per counter
+    List<QueueToken> findByQueueIdAndCounterIdAndStatus(
+            Long queueId,
+            Long counterId,
+            TokenStatus status
+    );
+
+    // 🔥 Count waiting users in queue
+    long countByQueueIdAndStatus(
+            Long queueId,
+            TokenStatus status
+    );
+
+    // 🔥 Count per counter
+    long countByQueueIdAndCounterIdAndStatus(
+            Long queueId,
+            Long counterId,
+            TokenStatus status
+    );
+
+    // 🔥 Prevent duplicate join
+    boolean existsByUserIdAndQueueIdAndStatus(
+            Long userId,
+            Long queueId,
+            TokenStatus status
+    );
+
+    // 🔥 Get next user (clean way)
+    Optional<QueueToken> findTopByQueueIdAndCounterIdAndStatusOrderByPositionAsc(
+            Long queueId,
+            Long counterId,
+            TokenStatus status
+    );
+
+    // 🔥 Used for scheduler
+    @Query("SELECT DISTINCT q.queueId FROM QueueToken q")
+    List<Long> findDistinctQueueIds();
+    
+    Optional<QueueToken> findTopByUserIdAndQueueIdOrderByCreatedAtDesc(
+            Long userId,
+            Long queueId
+    );
+}

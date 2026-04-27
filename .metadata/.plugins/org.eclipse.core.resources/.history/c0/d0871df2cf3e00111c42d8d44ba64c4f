@@ -1,0 +1,6 @@
+public class CancelRequest {
+    private Long tokenId;
+    private String reason;
+
+    // getters & setters
+}

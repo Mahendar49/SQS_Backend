@@ -1,0 +1,16 @@
+package com.ecommerce.user.service;
+
+import com.ecommerce.user.dto.UpdateUserProfileRequestDto;
+import com.ecommerce.user.dto.UserProfileResponseDTO;
+
+
+public interface UserProfileService {
+
+    UserProfileResponseDTO getProfile(Long userId);
+
+    UserProfileResponseDTO updateProfile(
+            Long userId,
+            UpdateUserProfileRequestDto request
+    );
+
+}

@@ -1,0 +1,54 @@
+package com.smartqueue.queue.service;
+
+import java.time.LocalDateTime;
+
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
+
+import com.smartqueue.queue.entity.Notification;
+import com.smartqueue.queue.entity.UserSettings;
+import com.smartqueue.queue.repository.NotificationRepository;
+import com.smartqueue.queue.repository.UserSettingsRepository;
+
+@Service
+public class NotificationServiceWithRepo {
+
+	private final SimpMessagingTemplate template;
+    private final NotificationRepository notificationRepository;
+    private final UserSettingsRepository userSettingsRepository;
+
+    public NotificationServiceWithRepo(
+            SimpMessagingTemplate template,
+            NotificationRepository notificationRepository,
+            UserSettingsRepository userSettingsRepository) {
+
+        this.template = template;
+        this.notificationRepository = notificationRepository;
+        this.userSettingsRepository = userSettingsRepository;
+    }
+
+    // 🔥 MAIN METHOD
+    public void notifyUser(Long userId, String message, Integer position, Long counterId) {
+
+        // ✅ 1. STORE IN DB
+        Notification notification = new Notification();
+        notification.setUserId(userId);
+        notification.setMessage(message);
+        notification.setSentAt(LocalDateTime.now());
+
+        notificationRepository.save(notification);
+
+        // ✅ 2. CHECK USER SETTINGS
+        boolean allow = userSettingsRepository.findByUserId(userId)
+                .map(UserSettings::getNotificationPref)
+                .orElse(true);
+
+        if (!allow) return;
+
+        // ✅ 3. SEND VIA WEBSOCKET
+        template.convertAndSend(
+                "/topic/user/" + userId,
+                notification
+        );
+    }
+}

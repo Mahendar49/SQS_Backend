@@ -1,0 +1,9 @@
+spring.application.name=api-gateway
+
+server.port=8080
+
+# JWT
+jwt.secret=de469a2048844d138a207383b67856c7643b307944342d23775febb4e19dbfe6fortokengenration
+
+spring.redis.host=localhost
+spring.redis.port=6379

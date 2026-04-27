@@ -1,0 +1,254 @@
+package com.smartqueue.queue.service;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
+import com.smartqueue.queue.client.BusinessClient;
+import com.smartqueue.queue.dto.CounterResponse;
+import com.smartqueue.queue.dto.JoinQueueResponse;
+import com.smartqueue.queue.entity.Cancellation;
+import com.smartqueue.queue.entity.NotificationType;
+import com.smartqueue.queue.entity.PriorityType;
+import com.smartqueue.queue.entity.QueueToken;
+import com.smartqueue.queue.entity.TokenStatus;
+import com.smartqueue.queue.repository.CancellationRepository;
+import com.smartqueue.queue.repository.QueueTokenRepository;
+import com.smartqueue.queue.util.PriorityUtil;
+
+@Service
+public class QueueService {
+
+    private final QueueTokenRepository repository;
+    private final BusinessClient businessClient;
+    private final CancellationRepository cancellationRepository;
+    private final NotificationService notificationService;
+
+    public QueueService(QueueTokenRepository repository,
+                        BusinessClient businessClient,
+                        CancellationRepository cancellationRepository,
+                        NotificationService notificationService) {
+
+        this.repository = repository;
+        this.businessClient = businessClient;
+        this.cancellationRepository = cancellationRepository;
+        this.notificationService = notificationService;
+    }
+
+    // ================= JOIN QUEUE =================
+
+    public JoinQueueResponse joinQueue(Long userId, Long queueId, PriorityType priorityType) {
+
+        boolean exists = repository.existsByUserIdAndQueueIdAndStatus(
+                userId, queueId, TokenStatus.WAITING
+        );
+
+        if (exists) {
+            return new JoinQueueResponse(false, null, null, "Already in queue");
+        }
+
+        QueueToken token = addToQueue(userId, queueId, priorityType);
+
+        notificationService.notifyIfImportant(
+                userId,
+                "Joined queue",
+                token.getPosition(),
+                token.getCounterId(),
+                NotificationType.QUEUE_JOIN
+        );
+
+        return new JoinQueueResponse(
+                true,
+                token.getId(),
+                token.getPosition(),
+                "Joined successfully"
+        );
+    }
+
+    // ================= ADD TO QUEUE =================
+
+    private QueueToken addToQueue(Long userId, Long queueId, PriorityType priorityType) {
+
+        List<CounterResponse> counters = businessClient.getCounters(queueId);
+
+        if (counters == null || counters.isEmpty()) {
+            throw new RuntimeException("No counters available");
+        }
+
+        // 🔥 SIMPLE: pick first counter (we can optimize later)
+        Long counterId = counters.get(0).getId();
+
+        List<QueueToken> tokens =
+                repository.findByQueueIdAndCounterIdAndStatus(
+                        queueId, counterId, TokenStatus.WAITING
+                );
+
+        QueueToken token = new QueueToken();
+        token.setUserId(userId);
+        token.setQueueId(queueId);
+        token.setCounterId(counterId);
+        token.setStatus(TokenStatus.WAITING);
+        token.setPriorityType(priorityType);
+        token.setCreatedAt(LocalDateTime.now());
+
+        tokens.add(token);
+
+        // 🔥 SORT BY PRIORITY + TIME
+        tokens.sort((a, b) -> {
+
+            int p1 = PriorityUtil.getPriorityWeight(a.getPriorityType());
+            int p2 = PriorityUtil.getPriorityWeight(b.getPriorityType());
+
+            if (p1 != p2) return p1 - p2;
+
+            return a.getCreatedAt().compareTo(b.getCreatedAt());
+        });
+
+        // 🔥 ASSIGN POSITION
+        for (int i = 0; i < tokens.size(); i++) {
+            tokens.get(i).setPosition(i + 1);
+        }
+
+        repository.saveAll(tokens);
+
+        return token;
+    }
+
+    // ================= COMPLETE =================
+
+    public String completeToken(Long tokenId) {
+
+        QueueToken token = repository.findById(tokenId)
+                .orElseThrow(() -> new RuntimeException("Token not found"));
+
+        token.setStatus(TokenStatus.COMPLETED);
+        repository.save(token);
+
+        serveNext(token.getQueueId(), token.getCounterId());
+
+        return "Completed";
+    }
+
+    // ================= CANCEL =================
+
+    public String cancelToken(Long tokenId, String reason) {
+
+        QueueToken token = repository.findById(tokenId)
+                .orElseThrow(() -> new RuntimeException("Token not found"));
+
+        token.setStatus(TokenStatus.CANCELLED);
+        repository.save(token);
+
+        Cancellation cancellation = new Cancellation();
+        cancellation.setTokenId(tokenId);
+        cancellation.setUserId(token.getUserId());
+        cancellation.setReason(reason);
+
+        cancellationRepository.save(cancellation);
+
+        serveNext(token.getQueueId(), token.getCounterId());
+
+        notificationService.notifyUser(
+                token.getUserId(),
+                "Token cancelled",
+                null,
+                null
+        );
+
+        return "Cancelled";
+    }
+
+    // ================= SERVE NEXT =================
+
+    private void serveNext(Long queueId, Long counterId) {
+
+        repository.findTopByQueueIdAndCounterIdAndStatusOrderByPositionAsc(
+                queueId, counterId, TokenStatus.WAITING
+        ).ifPresent(next -> {
+
+            next.setStatus(TokenStatus.SERVING);
+            repository.save(next);
+
+            notificationService.notifyIfImportant(
+                    next.getUserId(),
+                    "🔥 Your turn now! Go to counter " + counterId,
+                    next.getPosition(),
+                    counterId,
+                    NotificationType.TURN_ALERT
+            );
+        });
+    }
+    private void smartRebalance(Long queueId) {
+
+        List<CounterResponse> counters = businessClient.getCounters(queueId);
+
+        if (counters == null || counters.size() < 2) return;
+
+        CounterResponse c1 = counters.get(0);
+        CounterResponse c2 = counters.get(1);
+
+        List<QueueToken> list1 = repository.findByQueueIdAndCounterIdAndStatus(
+                queueId, c1.getId(), TokenStatus.WAITING);
+
+        List<QueueToken> list2 = repository.findByQueueIdAndCounterIdAndStatus(
+                queueId, c2.getId(), TokenStatus.WAITING);
+
+        // 🔥 imbalance check
+        if (Math.abs(list1.size() - list2.size()) <= 1) return;
+
+        List<QueueToken> heavy = list1.size() > list2.size() ? list1 : list2;
+        Long targetCounter = list1.size() > list2.size() ? c2.getId() : c1.getId();
+
+        // 🔥 move last non-emergency user
+        for (int i = heavy.size() - 1; i >= 0; i--) {
+
+            QueueToken token = heavy.get(i);
+
+            if (token.getPriorityType() != PriorityType.EMERGENCY) {
+
+                token.setCounterId(targetCounter);
+                repository.save(token);
+
+                notificationService.notifyIfImportant(
+                        token.getUserId(),
+                        "Moved to another counter for faster service",
+                        token.getPosition(),
+                        targetCounter,
+                        NotificationType.GENERAL
+                );
+
+                break;
+            }
+        }
+
+        // 🔥 rebalance both counters
+        rebalanceQueue(queueId, c1.getId());
+        rebalanceQueue(queueId, c2.getId());
+    }
+    private void promoteFromStandby(Long queueId) {
+
+        var standbyList = standbyRepository
+                .findByQueueIdOrderByJoinedAtAsc(queueId);
+
+        if (standbyList.isEmpty()) return;
+
+        var next = standbyList.get(0);
+
+        standbyRepository.delete(next);
+
+        QueueToken token = addToQueue(
+                next.getUserId(),
+                queueId,
+                PriorityType.NORMAL
+        );
+
+        notificationService.notifyIfImportant(
+                next.getUserId(),
+                "Moved from standby to active queue",
+                token.getPosition(),
+                token.getCounterId(),
+                NotificationType.STANDBY_CALL
+        );
+    }
+}

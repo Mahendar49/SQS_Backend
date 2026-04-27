@@ -1,0 +1,75 @@
+package com.smartqueue.queue.service;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+import org.springframework.stereotype.Service;
+
+import com.smartqueue.queue.entity.QueueAnalytics;
+import com.smartqueue.queue.repository.QueueAnalyticsRepository;
+
+@Service
+public class AnalyticsService {
+
+    private final QueueAnalyticsRepository repository;
+
+    public AnalyticsService(QueueAnalyticsRepository repository) {
+        this.repository = repository;
+    }
+
+    // 🔥 TRACK JOIN
+    public void trackJoin(Long queueId) {
+
+        LocalDate today = LocalDate.now();
+        int hour = LocalDateTime.now().getHour();
+
+        QueueAnalytics analytics = repository
+                .findByQueueIdAndDateAndHour(queueId, today, hour)
+                .orElseGet(() -> {
+                    QueueAnalytics qa = new QueueAnalytics();
+                    qa.setQueueId(queueId);
+                    qa.setDate(today);
+                    qa.setHour(hour);
+                    return qa;
+                });
+
+        analytics.setTotalUsers(analytics.getTotalUsers() + 1);
+
+        repository.save(analytics);
+    }
+
+    // 🔥 TRACK CANCEL
+    public void trackCancel(Long queueId) {
+
+        LocalDate today = LocalDate.now();
+        int hour = LocalDateTime.now().getHour();
+
+        QueueAnalytics analytics = repository
+                .findByQueueIdAndDateAndHour(queueId, today, hour)
+                .orElseThrow();
+
+        analytics.setCancellations(analytics.getCancellations() + 1);
+
+        repository.save(analytics);
+    }
+
+    // 🔥 TRACK WAIT TIME
+    public void trackWaitTime(Long queueId, long waitTime) {
+
+        LocalDate today = LocalDate.now();
+        int hour = LocalDateTime.now().getHour();
+
+        QueueAnalytics analytics = repository
+                .findByQueueIdAndDateAndHour(queueId, today, hour)
+                .orElseThrow();
+
+        long currentAvg = analytics.getAvgWaitTime();
+        int total = analytics.getTotalUsers();
+
+        long newAvg = (currentAvg * (total - 1) + waitTime) / total;
+
+        analytics.setAvgWaitTime(newAvg);
+
+        repository.save(analytics);
+    }
+}

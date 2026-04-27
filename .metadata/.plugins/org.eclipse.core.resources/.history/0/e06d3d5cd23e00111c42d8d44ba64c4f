@@ -1,0 +1,97 @@
+package com.smartqueue.gateway.filter;
+
+import java.util.List;
+
+import org.springframework.cloud.gateway.filter.GatewayFilter;
+import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
+
+import com.smartqueue.gateway.config.RouteSecurityConfig;
+import com.smartqueue.gateway.util.JwtUtil;
+
+import io.jsonwebtoken.Claims;
+import reactor.core.publisher.Mono;
+
+/**
+ * Purpose:
+ * JWT Authentication + Authorization Filter
+ */
+@Component
+public class JwtAuthWebFilter implements GatewayFilter {
+
+    private final JwtUtil jwtUtil;
+    private final RouteSecurityConfig securityConfig;
+
+    public JwtAuthWebFilter(JwtUtil jwtUtil, RouteSecurityConfig securityConfig) {
+        this.jwtUtil = jwtUtil;
+        this.securityConfig = securityConfig;
+    }
+
+    @Override
+    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+
+        String path = exchange.getRequest().getURI().getPath();
+
+        // 🔓 Skip authentication for public routes
+        if (securityConfig.isPublic(path)) {
+            return chain.filter(exchange);
+        }
+
+        // 🔐 BLOCK HEADER SPOOFING (IMPORTANT)
+        if (exchange.getRequest().getHeaders().getFirst("X-User-Id") != null) {
+            return onError(exchange, "Do not send X-User-Id header", HttpStatus.BAD_REQUEST);
+        }
+
+        String authHeader = exchange.getRequest().getHeaders().getFirst("Authorization");
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return onError(exchange, "Missing or invalid Authorization header", HttpStatus.UNAUTHORIZED);
+        }
+
+        String token = authHeader.substring(7);
+
+        try {
+            Claims claims = jwtUtil.validateAndExtract(token);
+
+            String userId = claims.getSubject();
+            List<String> roles = claims.get("roles", List.class);
+
+            // ================= ROLE CHECK =================
+            var allowedRolesOpt = securityConfig.getAllowedRoles(path);
+
+            if (allowedRolesOpt.isPresent()) {
+                boolean hasRole = roles != null &&
+                        roles.stream().anyMatch(allowedRolesOpt.get()::contains);
+
+                if (!hasRole) {
+                    return onError(exchange, "Access Denied - Role", HttpStatus.FORBIDDEN);
+                }
+            }
+
+            // ================= SECURE HEADER INJECTION =================
+            var mutatedRequest = exchange.getRequest().mutate()
+                    .headers(headers -> {
+                        // 🔥 REMOVE ANY EXISTING HEADERS (SECURITY)
+                        headers.remove("X-User-Id");
+                        headers.remove("X-User-Roles");
+
+                        // ✅ ADD TRUSTED VALUES FROM JWT
+                        headers.add("X-User-Id", userId);
+                        headers.add("X-User-Roles", String.join(",", roles));
+                    })
+                    .build();
+
+            return chain.filter(exchange.mutate().request(mutatedRequest).build());
+
+        } catch (Exception e) {
+            return onError(exchange, "Invalid or expired token", HttpStatus.UNAUTHORIZED);
+        }
+    }
+
+    private Mono<Void> onError(ServerWebExchange exchange, String message, HttpStatus status) {
+        exchange.getResponse().setStatusCode(status);
+        return exchange.getResponse().setComplete();
+    }
+}

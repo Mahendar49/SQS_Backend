@@ -1,0 +1,22 @@
+package com.smartqueue.queue.service;
+
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
+
+@Service
+public class NotificationService {
+
+    private final SimpMessagingTemplate template;
+
+    public NotificationService(SimpMessagingTemplate template) {
+        this.template = template;
+    }
+
+    public void notifyUser(Long userId, String message) {
+
+        System.out.println("🔥 WS SENT → user " + userId + " : " + message);
+
+        template.convertAndSend("/topic/user/" + userId, message);
+    }
+    
+}

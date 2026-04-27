@@ -1,0 +1,28 @@
+package com.smartqueue.queue.service;
+
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
+
+import com.smartqueue.queue.dto.QueueEvent;
+import com.smartqueue.queue.repository.UserSettingsRepository;
+
+@Service
+public class NotificationService {
+
+    private final SimpMessagingTemplate template;
+    private final UserSettingsRepository userSettingsRepository;
+
+    public NotificationService(SimpMessagingTemplate template) {
+        this.template = template;
+    }
+
+    // 🔥 MUST BE PUBLIC
+    public void notifyUser(Long userId, String message, Integer position, Long counterId) {
+
+        QueueEvent event = new QueueEvent(message, position, counterId);
+
+        System.out.println("📡 WS EVENT → User: " + userId + " | " + message);
+
+        template.convertAndSend("/topic/user/" + userId, event);
+    }
+}

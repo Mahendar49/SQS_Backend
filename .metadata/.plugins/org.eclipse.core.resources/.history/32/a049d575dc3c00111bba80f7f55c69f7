@@ -1,0 +1,54 @@
+package com.smartqueue.gateway.config;
+
+import org.springframework.stereotype.Component;
+
+import java.util.*;
+
+/**
+ * Purpose:
+ * Central place for API security rules
+ *
+ * Responsibilities:
+ * - Define public APIs
+ * - Define role-based access
+ * - Define permission-based access
+ */
+@Component
+public class RouteSecurityConfig {
+
+    // ✅ Public APIs (NO JWT REQUIRED)
+    private static final List<String> PUBLIC_ENDPOINTS = List.of(
+            "/api/v1/auth/**"
+    );
+
+    // ✅ Role-based rules
+    private static final Map<String, List<String>> ROLE_RULES = Map.of(
+            "/api/v1/business/", List.of("ADMIN"),
+            "/api/v1/queue/", List.of("USER", "ADMIN")
+    );
+
+    // ✅ Permission-based rules (fine-grained)
+    private static final Map<String, String> PERMISSION_RULES = Map.of(
+            "/api/v1/queue/join", "CREATE_QUEUE",
+            "/api/v1/queue/cancel", "CANCEL_QUEUE",
+            "/api/v1/business/create", "MANAGE_BUSINESS"
+    );
+
+    public boolean isPublic(String path) {
+        return PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith);
+    }
+
+    public Optional<List<String>> getAllowedRoles(String path) {
+        return ROLE_RULES.entrySet().stream()
+                .filter(e -> path.startsWith(e.getKey()))
+                .map(Map.Entry::getValue)
+                .findFirst();
+    }
+
+    public Optional<String> getRequiredPermission(String path) {
+        return PERMISSION_RULES.entrySet().stream()
+                .filter(e -> path.startsWith(e.getKey()))
+                .map(Map.Entry::getValue)
+                .findFirst();
+    }
+}

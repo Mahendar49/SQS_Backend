@@ -1,0 +1,30 @@
+package com.smartqueue.queue.client;
+
+import java.util.List;
+
+import org.springframework.stereotype.Component;
+
+import com.smartqueue.queue.dto.ApiResponse;
+import com.smartqueue.queue.dto.CounterResponse;
+
+	@Component
+	public class BusinessFallback implements BusinessClient {
+
+	    @Override
+	    public ApiResponse<List<CounterResponse>> getCounters(Long id) {
+	        return new ApiResponse<>(
+	                false,
+	                "Business service unavailable (fallback)",
+	                List.of()
+	        );
+	    }
+
+	    @Override
+	    public ApiResponse<Object> getBusiness(Long id) {
+	        return new ApiResponse<>(
+	                false,
+	                "Business service unavailable (fallback)",
+	                null
+	        );
+	    }
+}

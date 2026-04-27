@@ -1,0 +1,41 @@
+package com.smartqueue.queue.dto;
+public class QueueDashboard {
+
+    private Long queueId;
+    private int totalWaiting;
+    private int totalServing;
+    private Long currentServingToken;
+    private Integer avgWaitTime;
+	public Long getQueueId() {
+		return queueId;
+	}
+	public void setQueueId(Long queueId) {
+		this.queueId = queueId;
+	}
+	public int getTotalWaiting() {
+		return totalWaiting;
+	}
+	public void setTotalWaiting(int totalWaiting) {
+		this.totalWaiting = totalWaiting;
+	}
+	public int getTotalServing() {
+		return totalServing;
+	}
+	public void setTotalServing(int totalServing) {
+		this.totalServing = totalServing;
+	}
+	public Long getCurrentServingToken() {
+		return currentServingToken;
+	}
+	public void setCurrentServingToken(Long currentServingToken) {
+		this.currentServingToken = currentServingToken;
+	}
+	public Integer getAvgWaitTime() {
+		return avgWaitTime;
+	}
+	public void setAvgWaitTime(Integer avgWaitTime) {
+		this.avgWaitTime = avgWaitTime;
+	}
+
+    // getters & setters
+}

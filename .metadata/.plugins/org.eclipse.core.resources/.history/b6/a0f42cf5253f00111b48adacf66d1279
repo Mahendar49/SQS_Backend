@@ -1,0 +1,107 @@
+package com.smartqueue.queue.controller;
+
+import java.util.List;
+
+import org.springframework.web.bind.annotation.*;
+
+import com.smartqueue.queue.dto.*;
+import com.smartqueue.queue.entity.Notification;
+import com.smartqueue.queue.entity.PriorityType;
+import com.smartqueue.queue.service.NotificationService;
+import com.smartqueue.queue.service.QueueService;
+
+@RestController
+@RequestMapping("/api/v1/queue")
+public class QueueController {
+
+    private final QueueService service;
+    private final NotificationService notificationService;
+
+    public QueueController(QueueService service,
+                           NotificationService notificationService) {
+        this.service = service;
+        this.notificationService = notificationService;
+    }
+
+    // ================= JOIN =================
+
+    @PostMapping("/join")
+    public ApiResponse<JoinQueueResponse> join(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestParam Long queueId,
+            @RequestParam(defaultValue = "NORMAL") PriorityType priority) {
+
+        return new ApiResponse<>(
+                true,
+                "Join request processed",
+                service.joinQueue(userId, queueId, priority)
+        );
+    }
+
+    // ================= CANCEL =================
+
+    @PostMapping("/cancel")
+    public ApiResponse<String> cancel(
+            @RequestBody CancelRequest request,
+            @RequestHeader("X-User-Id") Long userId) {
+
+        return new ApiResponse<>(
+                true,
+                service.cancelToken(request.getTokenId(), request.getReason()),
+                null
+        );
+    }
+
+    // ================= COMPLETE =================
+
+    @PostMapping("/complete/{tokenId}")
+    public ApiResponse<String> complete(
+            @PathVariable Long tokenId) {
+
+        return new ApiResponse<>(
+                true,
+                service.completeToken(tokenId),
+                null
+        );
+    }
+
+    // ================= USER DASHBOARD =================
+
+    @GetMapping("/dashboard")
+    public ApiResponse<UserQueueDashboard> getUserDashboard(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestParam Long queueId) {
+
+        return new ApiResponse<>(
+                true,
+                "User dashboard",
+                service.getUserDashboard(userId, queueId)
+        );
+    }
+
+    // ================= ADMIN DASHBOARD =================
+
+    @GetMapping("/admin/dashboard")
+    public ApiResponse<QueueDashboard> getQueueDashboard(
+            @RequestParam Long queueId) {
+
+        return new ApiResponse<>(
+                true,
+                "Queue dashboard",
+                service.getQueueDashboard(queueId)
+        );
+    }
+
+    // ================= NOTIFICATIONS =================
+
+    @GetMapping("/notifications")
+    public ApiResponse<List<Notification>> getNotifications(
+            @RequestHeader("X-User-Id") Long userId) {
+
+        return new ApiResponse<>(
+                true,
+                "Notifications fetched",
+                notificationService.getUserNotifications(userId)
+        );
+    }
+}

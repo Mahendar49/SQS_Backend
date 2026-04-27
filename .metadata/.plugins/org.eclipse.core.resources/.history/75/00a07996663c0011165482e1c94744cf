@@ -1,0 +1,30 @@
+package com.smartqueue.queue.repository;
+
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import com.smartqueue.queue.entity.QueueToken;
+
+public interface QueueTokenRepository extends JpaRepository<QueueToken, Long> {
+
+    List<QueueToken> findByQueueIdAndStatusOrderByPosition(Long queueId, String status);
+
+    long countByQueueIdAndCounterIdAndStatus(Long queueId, Long counterId, String status);
+    
+    List<QueueToken> findByQueueIdAndCounterIdAndStatus(Long queueId, Long counterId, String status);
+    
+    long countByQueueIdAndStatus(Long queueId, String status);
+    
+    boolean existsByUserIdAndQueueIdAndStatus(Long userId, Long queueId, String status);
+    
+    @Query("SELECT DISTINCT q.queueId FROM QueueToken q")
+    List<Long> findDistinctQueueIds();
+    
+    boolean existsByIdAndQueueId(Long counterId, Long queueId)
+    if (!counterRepository.existsByIdAndQueueId(counterId, queueId)) {
+        throw new RuntimeException("Invalid counter for queue");
+    }
+    
+}

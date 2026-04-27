@@ -1,0 +1,222 @@
+package com.ecommerce.user.service.impl;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import com.ecommerce.user.dto.*;
+import com.ecommerce.user.entity.*;
+import com.ecommerce.user.exception.custom.*;
+import com.ecommerce.user.repository.*;
+import com.ecommerce.user.security.JwtUtil;
+import com.ecommerce.user.service.*;
+
+import jakarta.transaction.Transactional;
+
+@Service
+public class AuthServiceImpl implements AuthService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtProvider;
+    private final OtpService otpService;
+    private final EmailService emailService;
+    private final RoleRepository roleRepo;
+    private final UserRoleRepository userRoleRepo;
+
+    public AuthServiceImpl(UserRepository userRepository,
+                           PasswordEncoder passwordEncoder,
+                           JwtUtil jwtProvider,
+                           OtpService otpService,
+                           EmailService emailService,
+                           RoleRepository roleRepo,
+                           UserRoleRepository userRoleRepo) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtProvider = jwtProvider;
+        this.otpService = otpService;
+        this.emailService = emailService;
+        this.roleRepo = roleRepo;
+        this.userRoleRepo = userRoleRepo;
+    }
+
+    // ================= REGISTER =================
+    @Override
+    public void register(RegisterRequestDTO dto) {
+
+        if (userRepository.existsByEmail(dto.getEmail())) {
+            throw new ResourceAlreadyExistsException("Email already registered");
+        }
+
+        User user = new User();
+        user.setName(dto.getName());
+        user.setEmail(dto.getEmail());
+        user.setPassword(passwordEncoder.encode(dto.getPassword()));
+        user.setVerifyEmail(false);
+        user.setStatus(UserStatus.INACTIVE);
+
+        String otp = otpService.generateOtp();
+        user.setOtp(otp);
+        user.setOtpExpires(LocalDateTime.now().plusMinutes(10));
+
+        userRepository.save(user);
+
+        // ✅ Assign default role
+        Role roleUser = roleRepo.findByName("ROLE_USER")
+                .orElseThrow(() -> new RuntimeException("ROLE_USER not found"));
+
+        userRoleRepo.save(new UserRole(user, roleUser));
+
+        emailService.sendEmail(
+                user.getEmail(),
+                "Verify email",
+                "Your OTP is: " + otp
+        );
+    }
+
+    // ================= VERIFY EMAIL =================
+    @Override
+    public void verifyEmailOtp(VerifyOtpRequestDTO dto) {
+
+        User user = userRepository.findByEmail(dto.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (!dto.getOtp().equals(user.getOtp())) {
+            throw new InvalidRequestException("Invalid OTP");
+        }
+
+        if (otpService.isExpired(user.getOtpExpires())) {
+            throw new InvalidRequestException("OTP expired");
+        }
+
+        user.setVerifyEmail(true);
+        user.setStatus(UserStatus.ACTIVE);
+        user.setOtp(null);
+        user.setOtpExpires(null);
+
+        userRepository.save(user);
+    }
+
+    // ================= LOGIN =================
+    @Override
+    public AuthResponseDTO login(LoginRequestDTO dto) {
+
+        User user = userRepository.findByEmail(dto.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("User not registered"));
+
+        if (!user.getVerifyEmail()) {
+            throw new InvalidRequestException("Email not verified");
+        }
+
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new InvalidRequestException("Contact admin");
+        }
+
+        if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
+            throw new InvalidRequestException("Invalid password");
+        }
+
+        // ✅ Fetch roles
+        List<String> roles = userRoleRepo.findByUser(user)
+                .stream()
+                .map(ur -> ur.getRole().getName())
+                .collect(Collectors.toList());
+
+        // ✅ Fetch permissions
+        List<String> permissions = userRoleRepo.findByUser(user)
+                .stream()
+                .flatMap(ur -> ur.getRole().getRoleFeatureMappings().stream())
+                .map(rf -> rf.getFeature().getName())
+                .distinct()
+                .collect(Collectors.toList());
+
+        String accessToken = jwtProvider.generateAccessToken(
+                user.getUserId(),
+                user.getEmail(),
+                roles,
+                permissions
+        );
+
+        String refreshToken = jwtProvider.generateRefreshToken(user.getUserId());
+
+        user.setRefreshToken(refreshToken);
+        user.setLastLoginDate(LocalDateTime.now());
+        userRepository.save(user);
+
+        return new AuthResponseDTO(accessToken, refreshToken);
+    }
+
+    // ================= REFRESH TOKEN =================
+    @Override
+    public AuthResponseDTO refreshToken(String refreshToken) {
+
+        String userId = jwtProvider.extractUserId(refreshToken);
+
+        User user = userRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (!refreshToken.equals(user.getRefreshToken())) {
+            throw new InvalidRequestException("Invalid refresh token");
+        }
+
+        List<String> roles = userRoleRepo.findByUser(user)
+                .stream()
+                .map(ur -> ur.getRole().getName())
+                .collect(Collectors.toList());
+
+        List<String> permissions = userRoleRepo.findByUser(user)
+                .stream()
+                .flatMap(ur -> ur.getRole().getRoleFeatureMappings().stream())
+                .map(rf -> rf.getFeature().getName())
+                .distinct()
+                .collect(Collectors.toList());
+
+        String newAccessToken = jwtProvider.generateAccessToken(
+                userId,
+                user.getEmail(),
+                roles,
+                permissions
+        );
+
+        return new AuthResponseDTO(newAccessToken, refreshToken);
+    }
+
+    // ================= CHANGE PASSWORD =================
+    @Override
+    public void changePassword(String userId, ChangePasswordRequestDTO dto) {
+
+        User user = userRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!passwordEncoder.matches(dto.getOldPassword(), user.getPassword())) {
+            throw new RuntimeException("Old password is incorrect");
+        }
+
+        if (!dto.getNewPassword().equals(dto.getConfirmPassword())) {
+            throw new RuntimeException("Passwords do not match");
+        }
+
+        user.setPassword(passwordEncoder.encode(dto.getNewPassword()));
+        userRepository.save(user);
+    }
+
+    // ================= ASSIGN ROLE =================
+    @Transactional
+    public boolean assignUserRole(String userId, String roleName) {
+
+        User user = userRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Role role = roleRepo.findByName(roleName)
+                .orElseThrow(() -> new RuntimeException("Role not found"));
+
+        if (!userRoleRepo.existsByUserAndRole(user, role)) {
+            userRoleRepo.save(new UserRole(user, role));
+        }
+
+        return true;
+    }
+}

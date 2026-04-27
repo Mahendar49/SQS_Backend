@@ -1,0 +1,29 @@
+package com.smartqueue.queue.service;
+
+import java.util.Map;
+
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
+
+@Service
+public class NotificationService {
+
+    private final SimpMessagingTemplate template;
+
+    public NotificationService(SimpMessagingTemplate template) {
+        this.template = template;
+    }
+
+    private void notifyUser(Long userId, String message, Integer position, Long counterId) {
+
+    	template.convertAndSend(
+                "/topic/user/" + userId,
+                Map.of(
+                        "message", message,
+                        "position", position,
+                        "counterId", counterId
+                )
+        );
+    }
+    
+}

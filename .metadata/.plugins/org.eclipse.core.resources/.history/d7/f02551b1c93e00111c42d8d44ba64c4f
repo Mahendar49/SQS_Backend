@@ -1,0 +1,29 @@
+package com.smartqueue.queue.controller;
+
+import org.springframework.web.bind.annotation.*;
+
+import com.smartqueue.queue.entity.UserSettings;
+import com.smartqueue.queue.service.UserSettingsService;
+
+@RestController
+@RequestMapping("/api/v1/settings")
+public class UserSettingsController {
+
+    private final UserSettingsService service;
+
+    public UserSettingsController(UserSettingsService service) {
+        this.service = service;
+    }
+
+    // ✅ GET SETTINGS
+    @GetMapping
+    public UserSettings get(@RequestParam Long userId) {
+        return service.getSettings(userId);
+    }
+
+    // ✅ UPDATE SETTINGS
+    @PostMapping
+    public UserSettings update(@RequestBody UserSettings request) {
+        return service.updateSettings(request);
+    }
+}

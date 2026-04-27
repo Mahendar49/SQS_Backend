@@ -1,0 +1,35 @@
+package com.smartqueue.queue.service;
+
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
+
+import com.smartqueue.queue.dto.QueueEvent;
+import com.smartqueue.queue.entity.UserSettings;
+import com.smartqueue.queue.repository.UserSettingsRepository;
+
+@Service
+public class NotificationService {
+
+	private final SimpMessagingTemplate template;
+	private final UserSettingsRepository userSettingsRepository;
+
+	public NotificationService(SimpMessagingTemplate template, UserSettingsRepository userSettingsRepository) {
+		this.template = template;
+		this.userSettingsRepository = userSettingsRepository;
+	}
+
+	// 🔥 MUST BE PUBLIC
+	public void notifyUser(Long userId, String message, Integer position, Long counterId) {
+
+		boolean allow = userSettingsRepository.findByUserId(userId)
+											.map(UserSettings::getNotificationPref).orElse(true);
+		if (!allow)
+			return; // 🚫 user disabled notifications
+
+		QueueEvent event = new QueueEvent(message, position, counterId);
+
+		System.out.println("📡 WS EVENT → User: " + userId + " | " + message);
+
+		template.convertAndSend("/topic/user/" + userId, event);
+	}
+}

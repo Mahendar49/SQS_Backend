@@ -1,0 +1,7 @@
+public class QueueRequest {
+
+    private String serviceName;
+    private String priorityType; // later we convert to ENUM
+
+    // getters/setters
+}

@@ -1,0 +1,70 @@
+package com.smartqueue.business.controller;
+
+import java.util.List;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.smartqueue.business.dto.ApiResponse;
+import com.smartqueue.business.dto.BusinessResponse;
+import com.smartqueue.business.dto.CounterRequest;
+import com.smartqueue.business.dto.CounterResponse;
+import com.smartqueue.business.dto.CreateBusinessRequest;
+import com.smartqueue.business.entity.Business;
+import com.smartqueue.business.entity.Counter;
+import com.smartqueue.business.entity.CounterStatus;
+import com.smartqueue.business.repository.CounterRepository;
+import com.smartqueue.business.service.BusinessService;
+
+@RestController
+@RequestMapping("/api/v1/business")
+public class BusinessController {
+
+	private final BusinessService service;
+	private final CounterRepository counterRepository;
+
+	public BusinessController(BusinessService service, CounterRepository counterRepository) {
+		this.service = service;
+		this.counterRepository = counterRepository;
+	}
+
+	@PostMapping("/create")
+	public ApiResponse<BusinessResponse> create(
+	        @RequestBody CreateBusinessRequest request,
+	        @RequestHeader("X-User-Id") String userId) {
+
+	    return new ApiResponse<>(
+	            true,
+	            "Business created",
+	            service.createBusiness(request, userId)
+	    );
+	}
+
+	@GetMapping("/{id}")
+	public Business get(@PathVariable Long id) {
+		return service.getById(id);
+	}
+
+	@PostMapping("/{id}/counter")
+	public String addCounter(
+	        @PathVariable Long id,
+	        @RequestBody CounterRequest request,
+	        @RequestHeader("X-User-Id") String userId) {
+
+	    service.addCounter(id, request, userId);
+	    return "Counter added";
+	}
+
+	@GetMapping("/{id}/counters")
+	public List<CounterResponse> getCounters(
+	        @PathVariable Long id,
+	        @RequestHeader("X-User-Id") String userId) {
+
+	    return service.getCounters(id, userId);
+	}
+}

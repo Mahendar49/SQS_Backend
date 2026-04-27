@@ -1,0 +1,378 @@
+package com.smartqueue.queue.service;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
+import com.smartqueue.queue.client.BusinessClient;
+import com.smartqueue.queue.dto.CounterResponse;
+import com.smartqueue.queue.dto.JoinQueueResponse;
+import com.smartqueue.queue.entity.Cancellation;
+import com.smartqueue.queue.entity.QueueToken;
+import com.smartqueue.queue.entity.StandbyUser;
+import com.smartqueue.queue.repository.CancellationRepository;
+import com.smartqueue.queue.repository.QueueTokenRepository;
+import com.smartqueue.queue.repository.StandbyUserRepository;
+import com.smartqueue.queue.util.PriorityUtil;
+
+@Service
+public class QueueService {
+
+    private final QueueTokenRepository repository;
+    private final BusinessClient businessClient;
+    private final CancellationRepository cancellationRepository;
+    private final StandbyUserRepository standbyRepository;
+    private final NotificationService notificationService;
+
+    private static final int MAX_QUEUE_SIZE = 5;
+
+    public QueueService(QueueTokenRepository repository,
+                        BusinessClient businessClient,
+                        CancellationRepository cancellationRepository,
+                        StandbyUserRepository standbyRepository,
+                        NotificationService notificationService) {
+
+        this.repository = repository;
+        this.businessClient = businessClient;
+        this.cancellationRepository = cancellationRepository;
+        this.standbyRepository = standbyRepository;
+        this.notificationService = notificationService;
+    }
+
+    // 🔥 JOIN QUEUE
+    public JoinQueueResponse joinQueue(Long userId, Long queueId, String priorityType) {
+
+        boolean alreadyInQueue =
+                repository.existsByUserIdAndQueueIdAndStatus(userId, queueId, "WAITING");
+
+        if (alreadyInQueue) {
+            return new JoinQueueResponse(false, null, null, "User already in queue");
+        }
+
+        long currentSize = repository.countByQueueIdAndStatus(queueId, "WAITING");
+
+        // 👉 Standby logic
+        if (currentSize >= MAX_QUEUE_SIZE) {
+
+            StandbyUser standby = new StandbyUser();
+            standby.setUserId(userId);
+            standby.setQueueId(queueId);
+
+            standbyRepository.save(standby);
+
+            notificationService.notifyUser(userId,
+                    "Queue full. Added to standby list.",
+                    standby.getPosition(),
+                    standby.getQueueId());
+
+            return new JoinQueueResponse(true, null, null, "Added to standby");
+        }
+
+        QueueToken token = addToQueue(userId, queueId, priorityType);
+        
+        notificationService.notifyUser(
+                userId,
+                "Joined queue",
+                token.getPosition(),
+                token.getCounterId()
+        );
+        smartRebalance(queueId);
+//        System.out.println("✅ USER JOINED → " + userId + " POSITION → " + token.getPosition());
+//        
+//        notificationService.notifyUser(userId,
+//                "Joined queue. Position: " + token.getPosition());
+
+        return new JoinQueueResponse(false, token.getId(),
+                token.getPosition(), "Joined queue successfully");
+    }
+
+    // 🔥 CORE LOGIC
+    private QueueToken addToQueue(Long userId, Long queueId, String priorityType) {
+
+        List<CounterResponse> counters = businessClient.getCounters(queueId);
+
+        if (counters == null || counters.isEmpty()) {
+            throw new RuntimeException("No counters available");
+        }
+
+        Long selectedCounterId = null;
+        long minETA = Long.MAX_VALUE;
+
+        // 🔥 Select best counter
+        for (CounterResponse counter : counters) {
+
+            List<QueueToken> tokens =
+                    repository.findByQueueIdAndCounterIdAndStatus(
+                            queueId, counter.getId(), "WAITING");
+
+            long eta = tokens.size() * counter.getAvgServiceTime();
+
+            if (eta < minETA) {
+                minETA = eta;
+                selectedCounterId = counter.getId();
+            }
+        }
+
+        if (selectedCounterId == null) {
+            throw new RuntimeException("No suitable counter found");
+        }
+
+        List<QueueToken> tokens =
+                repository.findByQueueIdAndCounterIdAndStatus(
+                        queueId, selectedCounterId, "WAITING");
+
+        // 🔥 Create new token
+        QueueToken newToken = new QueueToken();
+        newToken.setUserId(userId);
+        newToken.setQueueId(queueId);
+        newToken.setCounterId(selectedCounterId);
+        newToken.setStatus("WAITING");
+        newToken.setPriorityType(priorityType);
+
+        // ✅ FIX: set createdAt BEFORE sorting
+        newToken.setCreatedAt(LocalDateTime.now());
+
+        tokens.add(newToken);
+
+        // 🔥 SAFE SORT
+        tokens.sort((a, b) -> {
+
+            int p1 = PriorityUtil.getPriorityWeight(a.getPriorityType());
+            int p2 = PriorityUtil.getPriorityWeight(b.getPriorityType());
+
+            if (p1 != p2) return p1 - p2;
+
+            if (a.getCreatedAt() == null) return 1;
+            if (b.getCreatedAt() == null) return -1;
+
+            return a.getCreatedAt().compareTo(b.getCreatedAt());
+        });
+
+        // 🔥 Reassign positions
+        for (int i = 0; i < tokens.size(); i++) {
+            tokens.get(i).setPosition(i + 1);
+        }
+
+        repository.saveAll(tokens);
+
+        return newToken;
+    }
+
+    // 🔥 CANCEL
+    public String cancelToken(Long tokenId, String reason) {
+
+        QueueToken token = repository.findById(tokenId)
+                .orElseThrow(() -> new RuntimeException("Token not found"));
+
+        token.setStatus("CANCELLED");
+        repository.save(token);
+
+        Cancellation cancellation = new Cancellation();
+        cancellation.setTokenId(tokenId);
+        cancellation.setReason(reason);
+        cancellationRepository.save(cancellation);
+
+        rebalanceQueue(token.getQueueId(), token.getCounterId());
+        smartRebalance(token.getQueueId());
+        promoteFromStandby(token.getQueueId());
+
+        notificationService.notifyUser(token.getUserId(),
+                "Your token is cancelled.");
+
+        return "Cancelled successfully";
+    }
+
+    // 🔥 REBALANCE
+    private void rebalanceQueue(Long queueId, Long counterId) {
+
+        List<QueueToken> tokens =
+                repository.findByQueueIdAndCounterIdAndStatus(
+                        queueId, counterId, "WAITING");
+
+        tokens.sort((a, b) -> {
+
+            int p1 = PriorityUtil.getPriorityWeight(a.getPriorityType());
+            int p2 = PriorityUtil.getPriorityWeight(b.getPriorityType());
+
+            if (p1 != p2) return p1 - p2;
+
+            if (a.getCreatedAt() == null) return 1;
+            if (b.getCreatedAt() == null) return -1;
+
+            return a.getCreatedAt().compareTo(b.getCreatedAt());
+        });
+
+        for (int i = 0; i < tokens.size(); i++) {
+            tokens.get(i).setPosition(i + 1);
+        }
+
+        repository.saveAll(tokens);
+
+        // 🔥 Notify users
+        for (QueueToken t : tokens) {
+            notificationService.notifyUser(
+                    t.getUserId(),
+                    "Position updated: " + t.getPosition()
+            );
+        }
+    }
+
+    public void smartRebalance(Long queueId) {
+
+        List<CounterResponse> counters = businessClient.getCounters(queueId);
+
+        Map<Long, List<QueueToken>> counterMap = new HashMap<>();
+
+        // Load tokens per counter
+        for (CounterResponse counter : counters) {
+
+            List<QueueToken> tokens =
+                    repository.findByQueueIdAndCounterIdAndStatus(
+                            queueId,
+                            counter.getId(),
+                            "WAITING"
+                    );
+
+            tokens.sort(this::compareTokens);
+
+            counterMap.put(counter.getId(), tokens);
+        }
+
+     // 🔥 Save old state
+        Map<Long, Integer> oldPositions = new HashMap<>();
+        Map<Long, Long> oldCounters = new HashMap<>();
+
+        for (List<QueueToken> list : counterMap.values()) {
+            for (QueueToken t : list) {
+                oldPositions.put(t.getId(), t.getPosition());
+                oldCounters.put(t.getId(), t.getCounterId());
+            }
+        }
+        
+        // 🔥 Calculate load
+        Map<Long, Long> loadMap = new HashMap<>();
+
+        for (CounterResponse counter : counters) {
+            long load = counterMap.get(counter.getId()).size()
+                    * counter.getAvgServiceTime();
+            loadMap.put(counter.getId(), load);
+        }
+
+        // 🔥 Find heavy & light counters
+        Long maxCounter = Collections.max(loadMap.entrySet(), Map.Entry.comparingByValue()).getKey();
+        Long minCounter = Collections.min(loadMap.entrySet(), Map.Entry.comparingByValue()).getKey();
+
+        List<QueueToken> heavyList = counterMap.get(maxCounter);
+        List<QueueToken> lightList = counterMap.get(minCounter);
+
+        // 🔥 Move users if imbalance exists
+        if (heavyList.size() - lightList.size() > 1) {
+
+            // Move last NORMAL user
+            for (int i = heavyList.size() - 1; i >= 0; i--) {
+
+                QueueToken token = heavyList.get(i);
+
+                if (!token.getPriorityType().equals("EMERGENCY")) {
+
+                    token.setCounterId(minCounter);
+                    lightList.add(token);
+                    heavyList.remove(i);
+
+                    break;
+                }
+            }
+        }
+
+        // 🔥 Reassign positions for both
+        rebalancePositions(heavyList);
+        rebalancePositions(lightList);
+
+        repository.saveAll(heavyList);
+        repository.saveAll(lightList);
+        
+     // 🔥 SEND WS EVENTS
+        List<QueueToken> allTokens = new ArrayList<>();
+        allTokens.addAll(heavyList);
+        allTokens.addAll(lightList);
+
+        for (QueueToken t : allTokens) {
+
+            Integer oldPos = oldPositions.get(t.getId());
+            Long oldCounter = oldCounters.get(t.getId());
+
+            boolean positionChanged = oldPos != null && !oldPos.equals(t.getPosition());
+            boolean counterChanged = oldCounter != null && !oldCounter.equals(t.getCounterId());
+
+            if (positionChanged || counterChanged) {
+
+                String msg = counterChanged
+                        ? "Moved to counter " + t.getCounterId()
+                        : "Position updated";
+
+                notificationService.notifyUser(
+                        t.getUserId(),
+                        msg,
+                        t.getPosition(),
+                        t.getCounterId()
+                );
+            }
+        }
+    }
+    
+    @Scheduled(fixedRate = 10000) // every 10 sec
+    public void autoRebalance() {
+
+        List<Long> queueIds = repository.findDistinctQueueIds();
+
+        for (Long qId : queueIds) {
+            smartRebalance(qId);
+        }
+    }
+    
+    private int compareTokens(QueueToken a, QueueToken b) {
+
+        int p1 = PriorityUtil.getPriorityWeight(a.getPriorityType());
+        int p2 = PriorityUtil.getPriorityWeight(b.getPriorityType());
+
+        if (p1 != p2) return p1 - p2;
+
+        return a.getCreatedAt().compareTo(b.getCreatedAt());
+    }
+    
+    private void rebalancePositions(List<QueueToken> tokens) {
+
+        tokens.sort(this::compareTokens);
+
+        for (int i = 0; i < tokens.size(); i++) {
+            tokens.get(i).setPosition(i + 1);
+        }
+    }
+    
+    // 🔥 STANDBY PROMOTION
+    private void promoteFromStandby(Long queueId) {
+
+        List<StandbyUser> standbyList =
+                standbyRepository.findByQueueIdOrderByJoinedAtAsc(queueId);
+
+        if (standbyList.isEmpty()) return;
+
+        StandbyUser next = standbyList.get(0);
+
+        standbyRepository.delete(next);
+
+        QueueToken token = addToQueue(next.getUserId(), queueId, "NORMAL");
+
+        System.out.println("🚀 STANDBY PROMOTED → " + next.getUserId());
+
+        notificationService.notifyUser(next.getUserId(),
+                "Moved from standby. Position: " + token.getPosition());
+    }
+    
+}

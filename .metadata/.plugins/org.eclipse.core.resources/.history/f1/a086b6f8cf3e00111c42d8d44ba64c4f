@@ -1,0 +1,7 @@
+package com.smartqueue.queue.dto;
+public class CancelRequest {
+    private Long tokenId;
+    private String reason;
+
+    // getters & setters
+}

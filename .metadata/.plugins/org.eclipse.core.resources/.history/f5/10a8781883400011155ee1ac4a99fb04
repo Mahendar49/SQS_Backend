@@ -1,0 +1,69 @@
+package com.ecommerce.user.mapper;
+
+import com.ecommerce.user.dto.AdminUserListResponseDTO;
+import com.ecommerce.user.dto.UserProfileResponseDTO;
+import com.ecommerce.user.dto.UserRequestDTO;
+import com.ecommerce.user.dto.UserResponseDTO;
+import com.ecommerce.user.dto.UserUpdateRequestDTO;
+import com.ecommerce.user.entity.User;
+
+public class UserMapper {
+
+    private UserMapper() {}
+
+    public static User toEntity(UserRequestDTO dto, String encodedPassword) {
+        User user = new User();
+        user.setName(dto.getName());
+        user.setEmail(dto.getEmail());
+        user.setPassword(encodedPassword);
+        return user;
+    }
+
+    public static UserResponseDTO toResponse(User user) {
+        UserResponseDTO dto = new UserResponseDTO();
+        dto.setId(user.getId());
+        dto.setName(user.getName());
+        dto.setEmail(user.getEmail());
+        dto.setMobile(user.getMobile());
+
+        // ✅ FIX: role is String
+        dto.setRole(user.getRole());
+
+        dto.setVerifyEmail(user.getVerifyEmail());
+        return dto;
+    }
+
+    public static UserProfileResponseDTO toProfileResponse(User user) {
+        UserProfileResponseDTO dto = new UserProfileResponseDTO();
+        dto.setId(user.getId());
+        dto.setName(user.getName());
+        dto.setEmail(user.getEmail());
+        dto.setMobile(user.getMobile());
+
+        // ✅ FIX
+        dto.setRole(user.getRole());
+
+        return dto;
+    }
+
+    public static void updateUserFromDto(User user, UserUpdateRequestDTO dto) {
+        user.setName(dto.getName());
+        user.setMobile(dto.getMobile());
+    }
+
+    public static AdminUserListResponseDTO toAdminListResponse(User user) {
+        AdminUserListResponseDTO dto = new AdminUserListResponseDTO();
+        dto.setId(user.getId());
+        dto.setName(user.getName());
+        dto.setEmail(user.getEmail());
+
+        // ✅ FIX
+        dto.setRole(user.getRole());
+
+        // ✅ status is ENUM → .name() is correct
+        dto.setStatus(user.getStatus().name());
+
+        dto.setCreatedAt(user.getCreatedAt());
+        return dto;
+    }
+}

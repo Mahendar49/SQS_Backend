@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<item key="hasShownOverlayPopupBefore" value="true"/>
+	<section name="java.lang.Class">
+		<item key="replaceBarOpen" value="false"/>
+		<list key="findhistory">
+			<item value="getCounters"/>
+			<item value="getQueues"/>
+			<item value="getQueuesForUser"/>
+			<item value="getCountersForUser"/>
+			<item value="queueRepository"/>
+			<item value="execute"/>
+			<item value="rebalancePositions"/>
+		</list>
+	</section>
+</section>

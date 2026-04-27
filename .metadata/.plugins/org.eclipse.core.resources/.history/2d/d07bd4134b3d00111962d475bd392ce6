@@ -1,0 +1,30 @@
+package com.smartqueue.gateway.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.web.server.SecurityWebFilterChain;
+
+/**
+ * Purpose:
+ * Security configuration for API Gateway
+ *
+ * Responsibilities:
+ * - Disable CSRF (for REST APIs)
+ * - Allow all requests (JWT handled in custom filter)
+ */
+@Configuration
+public class SecurityConfig {
+
+    @Bean
+    public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
+
+        return http
+                .csrf(csrf -> csrf.disable())   // 🔥 FIX: Disable CSRF
+                .authorizeExchange(exchange -> exchange
+                        .anyExchange().permitAll()
+                        .anyExchange().authenticated()// 🔥 Allow all (JWT handled separately)
+                )
+                .build();
+    }
+}

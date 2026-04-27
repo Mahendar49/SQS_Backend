@@ -1,0 +1,99 @@
+package com.smartqueue.queue.entity;
+
+import java.time.LocalDate;
+
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "queue_analytics")
+public class QueueAnalytics {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private Long queueId;
+
+    private LocalDate date;
+
+    private Integer hour;
+
+    private Integer totalUsers = 0;
+
+    private Long avgWaitTime = 0L;
+
+    private Integer cancellations = 0;
+
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	public Long getQueueId() {
+		return queueId;
+	}
+
+	public void setQueueId(Long queueId) {
+		this.queueId = queueId;
+	}
+
+	public LocalDate getDate() {
+		return date;
+	}
+
+	public void setDate(LocalDate date) {
+		this.date = date;
+	}
+
+	public Integer getHour() {
+		return hour;
+	}
+
+	public void setHour(Integer hour) {
+		this.hour = hour;
+	}
+
+	public Integer getTotalUsers() {
+		return totalUsers;
+	}
+
+	public void setTotalUsers(Integer totalUsers) {
+		this.totalUsers = totalUsers;
+	}
+
+	public Long getAvgWaitTime() {
+		return avgWaitTime;
+	}
+
+	public void setAvgWaitTime(Long avgWaitTime) {
+		this.avgWaitTime = avgWaitTime;
+	}
+
+	public Integer getCancellations() {
+		return cancellations;
+	}
+
+	public void setCancellations(Integer cancellations) {
+		this.cancellations = cancellations;
+	}
+
+    // Getters & Setters
+    public QueueAnalytics() {
+		// TODO Auto-generated constructor stub
+	}
+
+	public QueueAnalytics(Long id, Long queueId, LocalDate date, Integer hour, Integer totalUsers, Long avgWaitTime,
+			Integer cancellations) {
+		super();
+		this.id = id;
+		this.queueId = queueId;
+		this.date = date;
+		this.hour = hour;
+		this.totalUsers = totalUsers;
+		this.avgWaitTime = avgWaitTime;
+		this.cancellations = cancellations;
+	}
+}

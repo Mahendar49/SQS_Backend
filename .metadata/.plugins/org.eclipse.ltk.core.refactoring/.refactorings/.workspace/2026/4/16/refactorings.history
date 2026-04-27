@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Delete resource &apos;smartqueue-system&apos;" deleteContents="true" description="Delete resource &apos;smartqueue-system&apos;" element1="/smartqueue-system" flags="7" id="org.eclipse.ltk.core.refactoring.delete.resources" resources="1" stamp="1776402911143"/>
+</session>

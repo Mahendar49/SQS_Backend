@@ -1,0 +1,57 @@
+package com.smartqueue.queue.controller;
+
+import java.util.List;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.smartqueue.queue.dto.ApiResponse;
+import com.smartqueue.queue.dto.JoinQueueResponse;
+import com.smartqueue.queue.entity.Notification;
+import com.smartqueue.queue.service.NotificationServiceWithRepo;
+import com.smartqueue.queue.service.QueueService;
+
+@RestController
+@RequestMapping("/api/v1/queue")
+public class QueueController {
+
+    private final QueueService service;
+    private final NotificationServiceWithRepo repository;
+
+    public QueueController(QueueService service, NotificationServiceWithRepo ) {
+        this.service = service;
+        this.repository = repository;
+    }
+
+    @PostMapping("/join")
+    public ApiResponse<JoinQueueResponse> join(
+            @RequestParam Long userId,
+            @RequestParam Long queueId,
+            @RequestParam(defaultValue = "NORMAL") String priority) {
+
+        return new ApiResponse<>(
+                true,
+                "Join request processed",
+                service.joinQueue(userId, queueId, priority)
+        );
+    }
+    @PostMapping("/cancel")
+    public ApiResponse<String> cancel(
+            @RequestParam Long tokenId,
+            @RequestParam String reason) {
+
+        return new ApiResponse<>(
+                true,
+                service.cancelToken(tokenId, reason),
+                null
+        );
+    }
+    @GetMapping("/notifications/{userId}")
+    public List<Notification> getUserNotifications(@PathVariable Long userId) {
+        return repository.findByUserIdOrderBySentAtDesc(userId);
+    }
+}

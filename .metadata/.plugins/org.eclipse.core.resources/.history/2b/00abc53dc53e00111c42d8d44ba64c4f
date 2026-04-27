@@ -1,0 +1,11 @@
+package com.smartqueue.queue.dto;
+public class QueueDashboard {
+
+    private Long queueId;
+    private int totalWaiting;
+    private int totalServing;
+    private Long currentServingToken;
+    private Integer avgWaitTime;
+
+    // getters & setters
+}

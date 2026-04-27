@@ -1,0 +1,64 @@
+package com.smartqueue.queue.entity;
+
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "user_settings")
+public class UserSettings {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private Long userId;
+
+    private Boolean notificationPref = true;
+
+    private String preferredLocation;
+
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	public Long getUserId() {
+		return userId;
+	}
+
+	public void setUserId(Long userId) {
+		this.userId = userId;
+	}
+
+	public Boolean getNotificationPref() {
+		return notificationPref;
+	}
+
+	public void setNotificationPref(Boolean notificationPref) {
+		this.notificationPref = notificationPref;
+	}
+
+	public String getPreferredLocation() {
+		return preferredLocation;
+	}
+
+	public void setPreferredLocation(String preferredLocation) {
+		this.preferredLocation = preferredLocation;
+	}
+
+    // Getters & Setters
+    public UserSettings() {
+		// TODO Auto-generated constructor stub
+	}
+
+	public UserSettings(Long id, Long userId, Boolean notificationPref, String preferredLocation) {
+		super();
+		this.id = id;
+		this.userId = userId;
+		this.notificationPref = notificationPref;
+		this.preferredLocation = preferredLocation;
+	}
+    
+}

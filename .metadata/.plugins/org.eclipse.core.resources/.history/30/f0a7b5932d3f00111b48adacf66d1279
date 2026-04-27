@@ -1,0 +1,50 @@
+package com.smartqueue.queue.dto;
+public class UserQueueDashboard {
+
+    private Long tokenId;
+    private Integer position;
+    private String status;
+    private Long counterId;
+    private long etaSeconds;
+    private String message;
+    
+    
+	public String getMessage() {
+		return message;
+	}
+	public void setMessage(String message) {
+		this.message = message;
+	}
+	public Long getTokenId() {
+		return tokenId;
+	}
+	public void setTokenId(Long tokenId) {
+		this.tokenId = tokenId;
+	}
+	public Integer getPosition() {
+		return position;
+	}
+	public void setPosition(Integer position) {
+		this.position = position;
+	}
+	public String getStatus() {
+		return status;
+	}
+	public void setStatus(String status) {
+		this.status = status;
+	}
+	public Long getCounterId() {
+		return counterId;
+	}
+	public void setCounterId(Long counterId) {
+		this.counterId = counterId;
+	}
+	public long getEtaSeconds() {
+		return etaSeconds;
+	}
+	public void setEtaSeconds(long etaSeconds) {
+		this.etaSeconds = etaSeconds;
+	}
+
+    // getters & setters
+}

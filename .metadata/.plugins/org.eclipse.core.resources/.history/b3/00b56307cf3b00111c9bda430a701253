@@ -1,0 +1,20 @@
+package com.smartqueue.queue.entity;
+
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "user_settings")
+public class UserSettings {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private Long userId;
+
+    private Boolean notificationPref = true;
+
+    private String preferredLocation;
+
+    // Getters & Setters
+}

@@ -1,0 +1,58 @@
+package com.smartqueue.gateway.config;
+
+import org.springframework.stereotype.Component;
+
+import java.util.*;
+
+/**
+ * Purpose:
+ * Central configuration for route security
+ *
+ * Responsibilities:
+ * - Identify public endpoints
+ * - Define role-based rules
+ * - Define permission-based rules
+ */
+@Component
+public class RouteSecurityConfig {
+
+    /**
+     * 🔓 PUBLIC ROUTES (NO AUTH REQUIRED)
+     */
+    public boolean isPublic(String path) {
+        // ✅ FIX: simple and reliable
+        return path.startsWith("/api/v1/auth");
+    }
+
+    /**
+     * 🔐 ROLE-BASED RULES
+     */
+    private static final Map<String, List<String>> ROLE_RULES = Map.of(
+            "/api/v1/business", List.of("ADMIN"),
+            "/api/v1/queue", List.of("USER", "ADMIN")
+    );
+
+    /**
+     * 🔐 PERMISSION-BASED RULES
+     */
+    private static final Map<String, String> PERMISSION_RULES = Map.of(
+            "/api/v1/queue/join", "CREATE_QUEUE",
+            "/api/v1/queue/cancel", "CANCEL_QUEUE",
+            "/api/v1/business/create", "MANAGE_BUSINESS",
+            "/api/v1/business/create", "CREATE_COUNTER"
+    );
+
+    public Optional<List<String>> getAllowedRoles(String path) {
+        return ROLE_RULES.entrySet().stream()
+                .filter(e -> path.startsWith(e.getKey()))
+                .map(Map.Entry::getValue)
+                .findFirst();
+    }
+
+    public Optional<String> getRequiredPermission(String path) {
+        return PERMISSION_RULES.entrySet().stream()
+                .filter(e -> path.startsWith(e.getKey()))
+                .map(Map.Entry::getValue)
+                .findFirst();
+    }
+}

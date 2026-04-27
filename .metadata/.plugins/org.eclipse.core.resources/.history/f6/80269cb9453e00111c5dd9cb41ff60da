@@ -1,0 +1,55 @@
+package com.smartqueue.business.service;
+
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
+import com.smartqueue.business.dto.BusinessResponse;
+import com.smartqueue.business.dto.CounterResponse;
+import com.smartqueue.business.dto.CreateBusinessRequest;
+import com.smartqueue.business.entity.Business;
+import com.smartqueue.business.entity.Counter;
+import com.smartqueue.business.exception.ResourceNotFoundException;
+import com.smartqueue.business.repository.BusinessRepository;
+import com.smartqueue.business.repository.CounterRepository;
+
+@Service
+public class BusinessService {
+
+    private final BusinessRepository repository;
+    private final CounterRepository counterRepository;
+
+    public BusinessService(BusinessRepository repository, CounterRepository counterRepository) {
+        this.repository = repository;
+        this.counterRepository = counterRepository;
+    }
+
+    public BusinessResponse createBusiness(CreateBusinessRequest request) {
+
+        Business business = new Business();
+        business.setName(request.getName());
+        business.setLocation(request.getLocation());
+
+        Business saved = repository.save(business);
+
+        return new BusinessResponse(
+                saved.getId(),
+                saved.getName(),
+                saved.getLocation()
+        );
+    }
+
+    public Business getById(Long id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Business not found with this ID: "+id));
+    }
+    
+    public List<CounterResponse> getCounters(Long businessId) {
+    	Business business = getById(businessId);
+        List<Counter> counters = counterRepository.findByBusinessId(business.getId());
+
+        return counters.stream()
+                .map(c -> new CounterResponse(c.getId(),c.getName(), c.getAvgServiceTime()))
+                .toList();
+    }
+}

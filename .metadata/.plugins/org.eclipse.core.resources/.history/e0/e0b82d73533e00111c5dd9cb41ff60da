@@ -1,0 +1,21 @@
+package com.smartqueue.business.dto;
+public class QueueRequest {
+
+    private String serviceName;
+    private String priorityType; // later we convert to ENUM
+	public String getServiceName() {
+		return serviceName;
+	}
+	public void setServiceName(String serviceName) {
+		this.serviceName = serviceName;
+	}
+	public String getPriorityType() {
+		return priorityType;
+	}
+	public void setPriorityType(String priorityType) {
+		this.priorityType = priorityType;
+	}
+
+    // getters/setters
+    
+}

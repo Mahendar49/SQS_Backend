@@ -1,0 +1,39 @@
+package com.smartqueue.queue.service;
+
+import org.springframework.stereotype.Service;
+
+import com.smartqueue.queue.entity.UserSettings;
+import com.smartqueue.queue.repository.UserSettingsRepository;
+
+@Service
+public class UserSettingsService {
+
+    private final UserSettingsRepository repository;
+
+    public UserSettingsService(UserSettingsRepository repository) {
+        this.repository = repository;
+    }
+
+    // ✅ GET SETTINGS
+    public UserSettings getSettings(Long userId) {
+        return repository.findByUserId(userId)
+                .orElseGet(() -> {
+                    // create default if not exists
+                    UserSettings settings = new UserSettings();
+                    settings.setUserId(userId);
+                    return repository.save(settings);
+                });
+    }
+
+    // ✅ UPDATE SETTINGS
+    public UserSettings updateSettings(UserSettings request) {
+        UserSettings existing = repository.findByUserId(request.getUserId())
+                .orElse(new UserSettings());
+
+        existing.setUserId(request.getUserId());
+        existing.setNotificationPref(request.getNotificationPref());
+        existing.setPreferredLocation(request.getPreferredLocation());
+
+        return repository.save(existing);
+    }
+}

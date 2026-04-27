@@ -1,0 +1,45 @@
+package com.smartqueue.queue.service;
+
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
+
+import com.smartqueue.queue.entity.Notification;
+import com.smartqueue.queue.repository.NotificationRepository;
+import com.smartqueue.queue.repository.UserSettingsRepository;
+
+@Service
+public class NotificationServiceWithRepo {
+
+	 private final SimpMessagingTemplate template;
+	    private final NotificationRepository notificationRepository;
+	    private final UserSettingsRepository userSettingsRepository;
+
+	    public NotificationServiceWithRepo(
+	            SimpMessagingTemplate template,
+	            NotificationRepository notificationRepository,
+	            UserSettingsRepository userSettingsRepository) {
+
+	        this.template = template;
+	        this.notificationRepository = notificationRepository;
+	        this.userSettingsRepository = userSettingsRepository;
+	    }
+
+
+    public void notifyUser(Long userId, String message, Integer position, Long counterId) {
+
+        // 🔥 Save to DB
+        Notification notification = new Notification();
+        notification.setUserId(userId);
+        notification.setMessage(message);
+        notification.setPosition(position);
+        notification.setCounterId(counterId);
+
+        notificationRepository.save(notification);
+
+        // 🔥 Send WebSocket
+        template.convertAndSend(
+                "/topic/user/" + userId,
+                notification
+        );
+    }
+}

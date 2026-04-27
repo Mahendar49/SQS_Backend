@@ -1,0 +1,11 @@
+package com.smartqueue.queue.dto;
+public class UserQueueDashboard {
+
+    private Long tokenId;
+    private Integer position;
+    private String status;
+    private Long counterId;
+    private long etaSeconds;
+
+    // getters & setters
+}

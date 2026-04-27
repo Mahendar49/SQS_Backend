@@ -1,0 +1,23 @@
+package com.smartqueue.business.repository;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.smartqueue.business.entity.Counter;
+import com.smartqueue.business.entity.CounterStatus;
+import com.smartqueue.business.entity.Queue;
+
+public interface CounterRepository extends JpaRepository<Counter, Long> {
+
+    List<Counter> findByBusinessId(Long businessId);
+    
+ // Check if counter belongs to business
+    Optional<Counter> findByIdAndBusinessId(Long counterId, Long businessId);
+
+    // Get only OPEN counters
+    List<Counter> findByBusinessIdAndStatus(Long businessId, CounterStatus status);
+    
+    List<Queue> findByBusinessId(Long businessId);
+}

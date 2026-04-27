@@ -1,0 +1,85 @@
+package com.ecommerce.user.mapper;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import com.ecommerce.user.dto.*;
+import com.ecommerce.user.entity.User;
+import com.ecommerce.user.entity.UserRole;
+
+public class UserMapper {
+
+    private UserMapper() {}
+
+    public static User toEntity(UserRequestDTO dto, String encodedPassword) {
+        User user = new User();
+        user.setName(dto.getName());
+        user.setEmail(dto.getEmail());
+        user.setPassword(encodedPassword);
+        return user;
+    }
+
+    // ✅ UPDATED → UUID + MULTI ROLE
+    public static UserResponseDTO toResponse(User user) {
+        UserResponseDTO dto = new UserResponseDTO();
+
+        dto.setUserId(user.getUserId()); // ✅ UUID
+        dto.setName(user.getName());
+        dto.setEmail(user.getEmail());
+        dto.setMobile(user.getMobile());
+        dto.setVerifyEmail(user.getVerifyEmail());
+
+        // ✅ MULTIPLE ROLES
+        List<String> roles = user.getUserRoles()
+                .stream()
+                .map(UserRole::getRole)
+                .map(role -> role.getName())
+                .collect(Collectors.toList());
+
+        dto.setRoles(roles);
+
+        return dto;
+    }
+
+    public static UserProfileResponseDTO toProfileResponse(User user) {
+        UserProfileResponseDTO dto = new UserProfileResponseDTO();
+
+        dto.setUserId(user.getUserId()); // ✅ UUID
+        dto.setName(user.getName());
+        dto.setEmail(user.getEmail());
+        dto.setMobile(user.getMobile());
+
+        List<String> roles = user.getUserRoles()
+                .stream()
+                .map(ur -> ur.getRole().getName())
+                .collect(Collectors.toList());
+
+        dto.setRoles(roles);
+
+        return dto;
+    }
+
+    public static void updateUserFromDto(User user, UserUpdateRequestDTO dto) {
+        user.setName(dto.getName());
+        user.setMobile(dto.getMobile());
+    }
+
+    public static AdminUserListResponseDTO toAdminListResponse(User user) {
+        AdminUserListResponseDTO dto = new AdminUserListResponseDTO();
+
+        dto.setUserId(user.getUserId()); // ✅ UUID
+        dto.setName(user.getName());
+        dto.setEmail(user.getEmail());
+        dto.setStatus(user.getStatus().name());
+        dto.setCreatedAt(user.getCreatedAt());
+
+        List<String> roles = user.getUserRoles()
+                .stream()
+                .map(ur -> ur.getRole().getName())
+                .collect(Collectors.toList());
+
+        dto.setRoles(roles);
+
+        return dto;
+    }
+}

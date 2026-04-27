@@ -1,0 +1,14 @@
+public class QueueResponse {
+
+    private Long id;
+    private String serviceName;
+    private String priorityType;
+
+    public QueueResponse(Long id, String serviceName, String priorityType) {
+        this.id = id;
+        this.serviceName = serviceName;
+        this.priorityType = priorityType;
+    }
+
+    // getters
+}

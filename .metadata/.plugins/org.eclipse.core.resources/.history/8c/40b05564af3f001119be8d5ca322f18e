@@ -1,0 +1,46 @@
+package com.smartqueue.business.controller;
+@RestController
+@RequestMapping("/api/v1/public/business")
+public class PublicBusinessController {
+
+    private final BusinessService service;
+
+    public PublicBusinessController(BusinessService service) {
+        this.service = service;
+    }
+
+    // 🔥 USERS CAN SEE ALL BUSINESSES
+    @GetMapping("/all")
+    public ApiResponse<List<BusinessResponse>> getAllBusinesses() {
+
+        return new ApiResponse<>(
+                true,
+                "Businesses fetched",
+                service.getAllBusinesses()
+        );
+    }
+
+    // 🔥 USERS CAN SEE COUNTERS
+    @GetMapping("/{id}/counters")
+    public ApiResponse<List<CounterResponse>> getCounters(
+            @PathVariable Long id) {
+
+        return new ApiResponse<>(
+                true,
+                "Counters fetched",
+                service.getCountersForUser(id)
+        );
+    }
+
+    // 🔥 USERS CAN SEE QUEUES
+    @GetMapping("/{businessId}/queues")
+    public ApiResponse<List<QueueResponse>> getQueues(
+            @PathVariable Long businessId) {
+
+        return new ApiResponse<>(
+                true,
+                "Queues fetched",
+                service.getQueuesForUser(businessId)
+        );
+    }
+}

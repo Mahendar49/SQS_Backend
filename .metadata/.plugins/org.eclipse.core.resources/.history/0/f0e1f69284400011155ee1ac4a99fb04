@@ -1,0 +1,33 @@
+package com.ecommerce.user.service;
+
+import java.util.List;
+
+import org.springframework.data.domain.Page;
+
+import com.ecommerce.user.dto.AdminUserListResponseDTO;
+import com.ecommerce.user.dto.UserProfileResponseDTO;
+import com.ecommerce.user.dto.UserUpdateRequestDTO;
+
+public interface UserService {
+
+    UserProfileResponseDTO getLoggedInUserProfile(Long userId);
+    
+    void updateProfile(Long userId, UserUpdateRequestDTO dto);
+
+    Page<AdminUserListResponseDTO> getAllUsers(int page, int size);
+
+    void deactivateUser(Long userId);
+    
+    void deactivateUsers(List<Long> userIds);
+    
+//    void updateUserRole(Long targetUserId, Long adminUserId, String role);
+    void updateUserRole(Long userId, String adminIdentifier, String role);
+
+    
+
+    void updateProfile(String userId, UserUpdateRequestDTO dto);
+    
+    
+    
+
+}

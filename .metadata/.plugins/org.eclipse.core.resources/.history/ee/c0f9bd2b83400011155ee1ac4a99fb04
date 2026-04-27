@@ -1,0 +1,19 @@
+package com.ecommerce.user.mapper;
+
+import org.springframework.stereotype.Component;
+
+import com.ecommerce.user.dto.UserProfileResponseDTO;
+import com.ecommerce.user.entity.User;
+
+@Component
+public class UserProfileMapper {
+
+    public UserProfileResponseDTO toDto(User user) {
+        UserProfileResponseDTO dto = new UserProfileResponseDTO();
+        dto.setId(user.getId());
+        dto.setName(user.getName());
+        dto.setEmail(user.getEmail());   // read-only
+        dto.setMobile(user.getMobile());
+        return dto;
+    }
+}

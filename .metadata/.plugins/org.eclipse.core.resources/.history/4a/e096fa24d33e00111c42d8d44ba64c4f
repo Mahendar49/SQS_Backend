@@ -1,0 +1,28 @@
+package com.smartqueue.queue.exception;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+
+import com.smartqueue.queue.dto.ApiResponse;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(BadRequestException.class)
+    public ApiResponse<String> handleBadRequest(BadRequestException ex) {
+        return new ApiResponse<>(
+                false,
+                ex.getMessage(),
+                null
+        );
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ApiResponse<String> handleGeneric(Exception ex) {
+        return new ApiResponse<>(
+                false,
+                "Something went wrong",
+                null
+        );
+    }
+}

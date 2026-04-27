@@ -1,0 +1,9 @@
+package com.smartqueue.queue.client;
+@Component
+public class BusinessFallback implements BusinessClient {
+
+    @Override
+    public ApiResponse<List<CounterResponse>> getCounters(Long id) {
+        return new ApiResponse<>(false, "Service unavailable", List.of());
+    }
+}

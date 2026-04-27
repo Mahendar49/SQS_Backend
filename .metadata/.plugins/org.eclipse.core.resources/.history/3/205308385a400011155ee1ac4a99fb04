@@ -1,0 +1,25 @@
+package com.smartqueue.queue.client;
+
+import java.util.List;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
+import com.smartqueue.queue.config.FeignConfig;
+import com.smartqueue.queue.dto.ApiResponse;
+import com.smartqueue.queue.dto.CounterResponse;
+
+
+@FeignClient(name = "business-service",
+			url = "http://localhost:8082", 
+			configuration = FeignConfig.class, 
+			fallback = BusinessFallback.class)
+public interface BusinessClient {
+
+	@GetMapping("/api/v1/business/{id}")
+	ApiResponse<Object> getBusiness(@PathVariable Long id);
+
+    @GetMapping("/api/v1/business/{id}/counters")
+    ApiResponse<List<CounterResponse>> getCounters(@PathVariable("id") Long businessId);
+}
