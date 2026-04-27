@@ -46,11 +46,12 @@ public class QueueController {
     public ApiResponse<String> cancel(
     		@Valid
             @RequestBody CancelRequest request,
-            @RequestHeader("X-User-Id") Long userId) {
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader(value = "X-User-Roles", required = false) String userRoles) {
 
         return new ApiResponse<>(
                 true,
-                service.cancelToken(request.getTokenId(), request.getReason()),
+                service.cancelToken(request.getTokenId(), request.getReason(), userId, userRoles),
                 null
         );
     }

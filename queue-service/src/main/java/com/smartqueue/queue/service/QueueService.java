@@ -19,9 +19,11 @@ import com.smartqueue.queue.entity.PriorityType;
 import com.smartqueue.queue.entity.QueueToken;
 import com.smartqueue.queue.entity.TokenStatus;
 import com.smartqueue.queue.exception.BadRequestException;
+import com.smartqueue.queue.exception.ForbiddenException;
 import com.smartqueue.queue.repository.CancellationRepository;
 import com.smartqueue.queue.repository.QueueTokenRepository;
 import com.smartqueue.queue.repository.StandbyUserRepository;
+import com.smartqueue.queue.util.AuthRoleUtil;
 import com.smartqueue.queue.util.PriorityUtil;
 
 @Service
@@ -127,7 +129,7 @@ public class QueueService {
 
     // 🔐 SECURITY CHECK
     if (!token.getUserId().equals(userId)) {
-        throw new BadRequestException("Unauthorized action");
+        throw new ForbiddenException("You are not allowed to complete this token");
     }
 
     // 🔥 VALIDATION
@@ -165,9 +167,16 @@ public class QueueService {
 }
 	// ================= CANCEL =================
 
-	public String cancelToken(Long tokenId, String reason) {
+	public String cancelToken(Long tokenId, String reason, Long requesterUserId, String requesterRoles) {
 
 		QueueToken token = repository.findById(tokenId).orElseThrow(() -> new BadRequestException("Token not found"));
+
+		boolean isOwner = token.getUserId().equals(requesterUserId);
+		boolean isAdmin = AuthRoleUtil.parseRoles(requesterRoles).contains("ADMIN");
+
+		if (!isOwner && !isAdmin) {
+			throw new ForbiddenException("You are not allowed to cancel this token");
+		}
 
 		// 🔥 VALIDATION (IMPORTANT)
 		if (token.getStatus() == TokenStatus.CANCELLED) {

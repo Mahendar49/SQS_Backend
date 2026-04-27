@@ -22,6 +22,12 @@ public class GlobalExceptionHandler {
         return new ApiResponse<>(false, ex.getMessage(), null);
     }
 
+    @ExceptionHandler(ForbiddenException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<String> handleForbidden(ForbiddenException ex) {
+        return new ApiResponse<>(false, ex.getMessage(), null);
+    }
+
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ApiResponse<String> handleGeneric(Exception ex) {
